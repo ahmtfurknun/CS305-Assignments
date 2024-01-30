@@ -1,0 +1,112 @@
+tMAIL Mail
+tSCHEDULE schedule
+tENDMAIL end[ \t\n\r]+Mail
+tENDSCHEDULE end[ \t\n\r]+schedule
+tSEND send
+tTO to
+tFROM from
+tSET set
+tADDRESS [a-zA-Z0-9_\-]+([\.][a-zA-Z0-9_\-]+)*@[a-zA-Z0-9]([\-a-zA-Z0-9]*[a-zA-Z0-9])*([\.][a-zA-Z0-9]([\-a-zA-Z0-9]*[a-zA-Z0-9])*){1,2}
+tDATE ([0-9]{2}\/[0-9]{2}\/[0-9]{4})|([0-9]{2}-[0-9]{2}-[0-9]{4})|([0-9]{2}\.[0-9]{2}\.[0-9]{4})
+tTIME [0-9]{2}":"[0-9]{2}
+    int noOfLines = 1;
+    int depthOfComment = 0;
+
+%x oneLineComment
+%x multiLineComment
+
+%%
+\n		                noOfLines++;
+
+"/*"                    {BEGIN(multiLineComment); depthOfComment++;}
+<multiLineComment>.
+<multiLineComment>\n    noOfLines++;
+<multiLineComment>"/*"  depthOfComment++;
+<multiLineComment>"*/"  {
+                            depthOfComment--;
+                            if (depthOfComment == 0)
+                            {
+                                BEGIN(INITIAL);
+                            }
+                        }
+
+"//"                    BEGIN(oneLineComment);
+<oneLineComment>.
+<oneLineComment>\n		{BEGIN(INITIAL); noOfLines++;}
+
+{tTIME}		    {
+                    char hh[3];
+                    char mm[3];
+                    strncpy(hh, yytext, 2);
+                    strncpy(mm, yytext+3, 2);
+                    hh[2] = '\0';
+                    mm[2] = '\0';
+                    printf("%d_tTIME_(Hour_%s_Minute_%s)\n", noOfLines, hh, mm);
+                }
+{tDATE}		    {
+                    char dd[3];
+                    char mm[3];
+                    char yyyy[5];
+                    strncpy(dd, yytext, 2);
+                    dd[2] = '\0';
+                    strncpy(mm, yytext+3, 2);
+                    mm[2] = '\0';
+                    strncpy(yyyy, yytext+6, 4);
+                    yyyy[4] = '\0';
+                    printf("%d_tDATE_(Day_%s_Month_%s_Year_%s)\n", noOfLines, dd, mm, yyyy);
+                }
+{tSCHEDULE}	    printf("%d_tSCHEDULE\n", noOfLines);
+{tADDRESS}	    printf("%d_tADDRESS_(%s)\n", noOfLines, yytext);
+{tMAIL}		    printf("%d_tMAIL\n", noOfLines);
+{tSET}		    printf("%d_tSET\n", noOfLines);
+","	            printf("%d_tCOMMA\n", noOfLines);
+":"	            printf("%d_tCOLON\n", noOfLines);
+"@"		        printf("%d_tAT\n", noOfLines);
+"]"		        printf("%d_tRBR\n", noOfLines);
+"["		        printf("%d_tLBR\n", noOfLines);
+")"		        printf("%d_tRPR\n", noOfLines);
+"("		        printf("%d_tLPR\n", noOfLines);
+{tTO}		    printf("%d_tTO\n", noOfLines);
+{tENDSCHEDULE}	{
+                    printf("%d_tENDSCHEDULE\n", noOfLines);
+                    int i = 0;
+                    while(i < yyleng)
+                    {
+                        if(yytext[i] == '\n') noOfLines++;
+                        i++;
+                    }
+                }
+{tENDMAIL}	    {
+                    printf("%d_tENDMAIL\n", noOfLines);
+                    int i = 0;
+                    while(i < yyleng)
+                    {
+                        if(yytext[i] == '\n') noOfLines++;
+                        i++;
+                    }
+                }
+{tSEND}		    printf("%d_tSEND\n", noOfLines);
+{tFROM}		    printf("%d_tFROM\n", noOfLines);
+\"([^"]*)\"	    {
+                    printf("%d_", noOfLines);
+                    char str[yyleng - 1];
+                    int i = 0;
+                    while(i < yyleng - 2)
+                    {
+                        str[i] = yytext[i+1];
+                        if(yytext[i+1] == '\n') noOfLines++;
+                        i++;
+                    }
+                    str[yyleng-2] = '\0';
+                    printf("tSTRING_(%s)\n", str);
+                    
+                }
+[_a-zA-Z][_a-zA-Z0-9]*	printf("%d_tIDENT_(%s)\n", noOfLines, yytext);
+" "
+.		printf("%d_ILLEGAL_CHARACTER_(%s)\n", noOfLines, yytext);
+
+%%
+int main()
+{
+	yylex();
+}
